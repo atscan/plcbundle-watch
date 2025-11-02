@@ -6,6 +6,7 @@ when:
 dependencies:
   nixpkgs:
     - nodejs
+    - pnpm
 
 steps:
   - name: build site

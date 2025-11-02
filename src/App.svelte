@@ -138,7 +138,7 @@
 
     <header class="flex items-center gap-10 flex-wrap">
       <div class="grow">
-        <h1 class="text-3xl linear-text-gradient">plcbundle instances</h1>
+        <h1 class="text-3xl linear-text-gradient"><a href="https://plcbundle-watch.pages.dev/" class="no-style">plcbundle instances</a></h1>
       </div>
       <div class="flex items-center gap-6">
         <Switch class="opacity-75" checked={autoRefreshEnabled} onCheckedChange={(x) => autoRefreshEnabled = x.checked} disabled={isUpdating}>

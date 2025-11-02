@@ -12,7 +12,7 @@
   @apply py-1.5 px-2;
 }
 
-a {
+a:not(.no-style) {
   @apply underline hover:no-underline;
 }
 

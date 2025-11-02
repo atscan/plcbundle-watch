@@ -5,21 +5,48 @@
   import orderBy from "lodash/orderBy";
   import { formatNumber, formatUptime } from './lib/utils';
   import instancesData from './instances.json';
-  
+
   const APP_TITLE = 'plcbundle instances'
   const PLC_DIRECTORY = 'plc.directory'
   const ROOT = 'cbab6809a136d6a621906ee11199d3b0faf85b422fe0d0d2c346ce8e9dcd7485'
   const AUTO_REFRESH_INTERVAL = 10         // in seconds
   const BUNDLE_OPS = 10_000
 
-  type Instance = {
-    url: string,
-    cors?: boolean,
-    status?: object,
-    modern?: boolean,
+  type StatusResponse = {
+    bundles: {
+      last_bundle: number;
+      root_hash: string;
+      head_hash: string;
+      end_time?: string;
+    };
+    server: {
+      uptime: number;
+    };
+    mempool?: {
+      count: number;
+      eta_next_bundle_seconds: number;
+    };
+    latency?: number;
   }
 
-  let lastKnownBundle = $state({
+  type Instance = {
+    url: string;
+    cors?: boolean;
+    status?: StatusResponse;
+    modern?: boolean;
+    _head?: boolean;
+  }
+
+  type LastKnownBundle = {
+    number: number;
+    hash: string | null;
+    mempool: number | null;
+    mempoolPercent: number;
+    time?: string;
+    etaNext?: Date;
+  }
+
+  let lastKnownBundle = $state<LastKnownBundle>({
     number: 0,
     hash: null,
     mempool: null,
@@ -31,12 +58,12 @@
   let isConflict = $state(false)
   let lastUpdated = $state(new Date())
   let autoRefreshEnabled = $state(true)
-  let instances = $state(instancesData.sort(() => Math.random() - 0.5))
+  let instances = $state<Instance[]>(instancesData.sort(() => Math.random() - 0.5))
 
   const instanceOrderBy = [['_head', 'status.bundles.last_bundle', 'status.latency'], ['desc', 'asc']]
 
-  async function getStatus(instance: Instance) {
-    let statusResp: object | undefined;
+  async function getStatus(instance: Instance): Promise<StatusResponse | undefined> {
+    let statusResp: StatusResponse | undefined;
     let url: string = instance.url;
     const start = performance.now();
     try {
@@ -45,15 +72,21 @@
     if (!statusResp) {
       url = `https://keyoxide.org/api/3/get/http?url=${encodeURIComponent(url)}&format=text&time=${Date.now()}`
       const indexResp = await (await fetch(url)).text()
-      const [ _, from, to ] = indexResp?.match(/Range:\s+(\d{6}) - (\d{6})/)
-      statusResp = {  
-        bundles: {
-          last_bundle: Number(to),
-          root_hash: indexResp?.match(/Root: ([a-f0-9]{64})/)[1],
-          head_hash: indexResp?.match(/Head: ([a-f0-9]{64})/)[1],
-        },
-        server: {
-          uptime: 1,
+      const match = indexResp?.match(/Range:\s+(\d{6}) - (\d{6})/)
+      if (match) {
+        const [, from, to] = match
+        const rootMatch = indexResp?.match(/Root: ([a-f0-9]{64})/)
+        const headMatch = indexResp?.match(/Head: ([a-f0-9]{64})/)
+        
+        statusResp = {  
+          bundles: {
+            last_bundle: Number(to),
+            root_hash: rootMatch ? rootMatch[1] : '',
+            head_hash: headMatch ? headMatch[1] : '',
+          },
+          server: {
+            uptime: 1,
+          }
         }
       }
     }
@@ -66,11 +99,11 @@
 
   function recalculateHead() {
     isConflict = false
-    const headHashes = []
+    const headHashes: string[] = []
     for (const instance of instances) {
       instance._head = instance.status?.bundles?.last_bundle === lastKnownBundle.number
-      if (instance._head) {
-        headHashes.push(instance.status?.bundles?.head_hash)
+      if (instance._head && instance.status?.bundles?.head_hash) {
+        headHashes.push(instance.status.bundles.head_hash)
       }
     }
     isConflict = [...new Set(headHashes)].length > 1
@@ -83,20 +116,18 @@
       i.status = undefined
     }
 
-    const statuses = []
-
     await Promise.all(instances.map(async (instance) => {
       const status = await getStatus(instance)
       instance.status = status
-      if (status?.bundles?.last_bundle > lastKnownBundle.number) {
-        lastKnownBundle.number = status?.bundles?.last_bundle
-        lastKnownBundle.hash = status?.bundles?.head_hash
-        lastKnownBundle.time = status?.bundles?.end_time
+      if (status?.bundles?.last_bundle && status.bundles.last_bundle > lastKnownBundle.number) {
+        lastKnownBundle.number = status.bundles.last_bundle
+        lastKnownBundle.hash = status.bundles.head_hash
+        lastKnownBundle.time = status.bundles.end_time
 
-        if (status?.mempool?.count > lastKnownBundle.mempool) {
-          lastKnownBundle.mempool = status?.mempool?.count
+        if (status?.mempool?.count && (!lastKnownBundle.mempool || status.mempool.count > lastKnownBundle.mempool)) {
+          lastKnownBundle.mempool = status.mempool.count
           lastKnownBundle.mempoolPercent = Math.round((lastKnownBundle.mempool/100)*100)/100
-          lastKnownBundle.etaNext = addSeconds(new Date(), status?.mempool?.eta_next_bundle_seconds)
+          lastKnownBundle.etaNext = addSeconds(new Date(), status.mempool.eta_next_bundle_seconds)
         }
       }
       lastUpdated = new Date()
@@ -108,9 +139,9 @@
     setTimeout(() => { canRefresh = true }, 500)
   }
 
-  function updateTitle () {
-    const arr = []
-    if (lastUpdated > 0) {
+  function updateTitle() {
+    const arr: string[] = []
+    if (lastUpdated) {
       const upCount = instances.filter(i => i._head)
       arr.push(`${isConflict ? '⚠️' : '✅'} [${upCount.length}/${instances.length}]`)
     }
@@ -118,14 +149,27 @@
     return true
   }
 
+  let autoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
   onMount(async () => {
     await doCheck()
 
-    setTimeout(() => {
-      if (autoRefreshEnabled) {
-        doCheck()
+    const scheduleRefresh = () => {
+      autoRefreshTimer = setTimeout(() => {
+        if (autoRefreshEnabled) {
+          doCheck()
+        }
+        scheduleRefresh()
+      }, AUTO_REFRESH_INTERVAL * 1000)
+    }
+    
+    scheduleRefresh()
+
+    return () => {
+      if (autoRefreshTimer) {
+        clearTimeout(autoRefreshTimer)
       }
-    }, AUTO_REFRESH_INTERVAL * 1000)
+    }
   })
 </script>
 
@@ -214,7 +258,7 @@
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
             <td>{#if instance._head}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status}🔄{:else}⌛{/if}</td>
             <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
-            <td>{#if instance.status?.mempool && instance._head}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
+            <td>{#if instance.status?.mempool && instance._head}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
             <td class="text-xs opacity-50">{#if instance.status?.mempool && instance._head}{instance.status?.mempool.last_op_age_seconds || 0}s{/if}</td>
             <td><span class="font-mono text-xs {instance._head ? (isConflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>

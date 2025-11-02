@@ -5,15 +5,13 @@ when:
 
 dependencies:
   nixpkgs:
-    - nodejs
-    - pnpm
-
+    - bun
 steps:
   - name: build site
     command: |
-      curl -fsSL https://get.pnpm.io/install.sh | sh -
-      pnpm install
-      pnpm run build
+      bun i
+      bun run build
+
   - name: deploy
     command: |
-      npx --yes wrangler pages deploy --branch main --project-name plcbundle-watch ./dist/
+      bunx wrangler pages deploy --branch main --project-name plcbundle-watch ./dist/

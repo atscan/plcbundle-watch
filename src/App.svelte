@@ -130,7 +130,7 @@
 </script>
 
 <main class="w-full mt-10">
-  <div class="max-w-4xl mx-auto px-3">
+  <div class="max-w-5xl mx-auto px-3">
 
     <header class="flex items-center gap-10 flex-wrap">
       <div class="grow">
@@ -196,9 +196,10 @@
       <thead>
         <tr>
           <th>endpoint</th>
-          <th>status</th>
-          <th>last bundle</th>
-          <th>mempool</th>          
+          <th>ok?</th>
+          <th>last</th>
+          <th>mempool</th>    
+          <th>age</th>      
           <th>head</th>
           <th>root</th>
           <th>version</th>
@@ -207,19 +208,20 @@
           <th>latency</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="[&>tr]:hover:bg-primary-500/10">
         {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
             <td>{#if instance._head}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status}🔄{:else}⌛{/if}</td>
             <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
-            <td>{#if instance.status?.mempool && instance.status?.bundles?.last_bundle === lastKnownBundle.number}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
+            <td>{#if instance.status?.mempool && instance._head}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
+            <td class="text-xs opacity-50">{#if instance.status?.mempool && instance._head}{instance.status?.mempool.last_op_age_seconds || 0}s{/if}</td>
             <td><span class="font-mono text-xs {instance._head ? (isConflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
-            <td>{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>
-            <td>{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
+            <td class="text-xs">{#if instance.status?.server?.version}<a href="{instance.url}/status">{instance.status?.server?.version}</a>{/if}</td>
+            <td class="text-xs">{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.uptime_seconds}{formatUptime(instance.status?.server?.uptime_seconds)}{/if}</td>
-            <td class="opacity-50">{#if instance.status?.latency}{Math.round(instance.status?.latency)}ms{/if}</td>
+            <td class="text-xs opacity-50">{#if instance.status?.latency}{Math.round(instance.status?.latency)}ms{/if}</td>
           </tr>
         {/each}
       </tbody>

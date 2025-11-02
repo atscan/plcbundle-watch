@@ -1,14 +1,11 @@
 [
     {
-        "url": "https://plcbundle.atscan.net",
-        "modern": true
+        "url": "https://plcbundle.atscan.net"
     },
     {
-        "url": "https://plc.j4ck.xyz",
-        "modern": true
+        "url": "https://plc.j4ck.xyz"
     },
     { 
-        "url": "https://plc.indexx.dev",
-        "modern": true
+        "url": "https://plc.indexx.dev"
     }
   ]

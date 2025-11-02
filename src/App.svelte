@@ -105,7 +105,7 @@
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             <td>{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>
-            <td class="opacity-50">{#if instance.status?.responseTime}{instance.status?.responseTime}ms{/if}</td>
+            <td class="opacity-50">{#if instance.status?.responseTime}{Math.round(instance.status?.responseTime)}ms{/if}</td>
           </tr>
         {/each}
       </tbody>

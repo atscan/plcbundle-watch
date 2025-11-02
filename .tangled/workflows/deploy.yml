@@ -10,7 +10,9 @@ dependencies:
 steps:
   - name: build site
     command: |
-      nix develop --command bash -c 'vite build'
+      curl -fsSL https://get.pnpm.io/install.sh | sh -
+      pnpm install
+      pnpm run build
   - name: deploy
     command: |
       npx --yes wrangler pages deploy --branch main --project-name plcbundle-watch ./dist/

@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton-svelte';
+@import '@skeletonlabs/skeleton/themes/cerberus';
+
+.table th {
+  @apply text-xs opacity-50 font-light px-3 text-left;
+}
+
+.table td {
+  @apply py-1.5 px-3;
+}
+
+a {
+  @apply underline hover:no-underline;
+}
+
+.table a {
+  @apply no-underline hover:underline;
+}
+
+[data-theme='cerberus'] {
+  --text-scaling: 1.3;
+}

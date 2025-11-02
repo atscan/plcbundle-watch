@@ -6,6 +6,8 @@
   import instancesData from './instances.json';
   import numeral from 'numeral';
   
+  const PLC_DIRECTORY = 'plc.directory'
+  const ROOT = 'cbab6809a136d6a621906ee11199d3b0faf85b422fe0d0d2c346ce8e9dcd7485'
   const AUTO_REFRESH_INTERVAL = 15         // in seconds
   const BUNDLE_OPS = 10_000
 
@@ -25,11 +27,12 @@
 
   let isUpdating = $state(false)
   let canRefresh = $state(true)
+  let isConflict = $state(false)
   let lastUpdated = $state(new Date())
   let autoRefreshEnabled = $state(true)
   let instances = $state(instancesData.sort(() => Math.random() - 0.5))
 
-  const instanceOrderBy = [['status.head', 'status.latency'], ['desc', 'asc']]
+  const instanceOrderBy = [['_head', 'status.latency'], ['desc', 'asc']]
 
   function formatNumber(n: number) {
     return numeral(n).format()
@@ -60,7 +63,20 @@
     if (statusResp) {
       statusResp.latency = performance.now() - start;
     }
+    //if (instance.url === 'https://plc.j4ck.xyz') { statusResp.bundles.head_hash = 'f3ad3544452b2c078cba24990486bb9c277a1155'; }
     return statusResp
+  }
+
+  function recalculateHead() {
+    isConflict = false
+    const headHashes = []
+    for (const instance of instances) {
+      instance._head = instance.status?.bundles?.last_bundle === lastKnownBundle.number
+      if (instance._head) {
+        headHashes.push(instance.status?.bundles?.head_hash)
+      }
+    }
+    isConflict = [...new Set(headHashes)].length > 1
   }
 
   async function doCheck() {
@@ -70,12 +86,12 @@
       i.status = undefined
     }
 
+    const statuses = []
+
     await Promise.all(instances.map(async (instance) => {
       const status = await getStatus(instance)
-
       instance.status = status
-      instance.status.head = status?.bundles?.last_bundle > lastKnownBundle.number
-      if (instance.status.head) {
+      if (status?.bundles?.last_bundle > lastKnownBundle.number) {
         lastKnownBundle.number = status?.bundles?.last_bundle
         lastKnownBundle.hash = status?.bundles?.head_hash
         lastKnownBundle.time = status?.bundles?.end_time
@@ -87,13 +103,16 @@
         }
       }
       lastUpdated = new Date()
+
+      recalculateHead()
     }))
+
     isUpdating = false
     setTimeout(() => (canRefresh = false), 1000)
   }
 
-  onMount(() => {
-    doCheck()
+  onMount(async () => {
+    await doCheck()
 
     setTimeout(() => {
       if (autoRefreshEnabled) {
@@ -128,7 +147,11 @@
         <div>
           <div class="flex items-center gap-5">
             <div class="font-semibold text-3xl">{lastKnownBundle.number}</div>
-            <div class="mt-1 font-mono badge preset-outlined-primary-500 text-xs">{lastKnownBundle?.hash?.slice(0, 7)}</div>
+            {#if !isConflict}
+              <div class="mt-1 font-mono badge preset-outlined-primary-500 text-xs">{lastKnownBundle?.hash?.slice(0, 7)}</div>
+            {:else}
+              <div class="mt-1 badge preset-filled-error-500">⚠️ conflict!</div>
+            {/if}
           </div>
           <div>
             <span class="opacity-50">{#if lastKnownBundle?.time} {formatDistanceToNow(lastKnownBundle.time, { addSuffix: true })}{/if}</span>
@@ -179,11 +202,11 @@
         {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
-            <td>{#if instance.status?.bundles?.last_bundle === lastKnownBundle.number}✅{:else if instance.status}🔄{:else}⌛{/if}</td>
+            <td>{#if instance._head}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status}🔄{:else}⌛{/if}</td>
             <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
             <td>{#if instance.status?.mempool && instance.status?.bundles?.last_bundle === lastKnownBundle.number}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
-            <td><span class="font-mono text-xs">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
-            <td><span class="font-mono text-xs">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
+            <td><span class="font-mono text-xs {instance._head ? (isConflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
+            <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             <td>{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>
             <td class="opacity-50">{#if instance.status?.latency}{Math.round(instance.status?.latency)}ms{/if}</td>
           </tr>
@@ -191,7 +214,18 @@
       </tbody>
     </table>
 
-    <div class="mt-12 opacity-50">
+
+    <div class="mt-12">
+      <div>
+        <span class="opacity-75">PLC Directory:</span> <a href="https://{PLC_DIRECTORY}">{PLC_DIRECTORY}</a> <span class="opacity-50">(origin)</span>
+      </div>      
+      <div class="mt-2">
+        <span class="opacity-75">Root:</span> <span class="font-mono text-xs">{ROOT.slice(0)}</span>
+      </div>
+    </div>
+
+    <hr class="hr mt-6" />
+    <div class="mt-2 opacity-50">
       <div>
         Last updated: {formatISO9075(lastUpdated)}
       </div>
@@ -199,6 +233,9 @@
         Source: <a href="https://tangled.org/@tree.fail/plcbundle-watch">https://tangled.org/@tree.fail/plcbundle-watch</a>
       </div>
     </div>
+    
+
+
   </div>
 </main>
 

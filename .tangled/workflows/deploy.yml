@@ -9,8 +9,7 @@ dependencies:
 steps:
   - name: build site
     command: |
-      bun i
-      bun run build
+      bun i && bun run build
 
   - name: deploy
     command: |

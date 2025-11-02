@@ -13,4 +13,4 @@ steps:
       nix develop --command bash -c 'vite build'
   - name: deploy
     command: |
-      npx --yes wrangler pages deploy --branch main --project-name plcbundle-watch ./build/
+      npx --yes wrangler pages deploy --branch main --project-name plcbundle-watch ./dist/

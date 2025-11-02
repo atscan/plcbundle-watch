@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { formatDistanceToNow, addSeconds, formatDate, formatISO9075 } from 'date-fns';
+  import { formatDistanceToNow, addSeconds, subSeconds, formatDate, formatISO9075 } from 'date-fns';
   import { Progress, Switch } from '@skeletonlabs/skeleton-svelte';
   import orderBy from "lodash/orderBy";
+  import { formatNumber, formatUptime } from './lib/utils';
   import instancesData from './instances.json';
-  import numeral from 'numeral';
   
   const APP_TITLE = 'plcbundle instances'
   const PLC_DIRECTORY = 'plc.directory'
@@ -34,10 +34,6 @@
   let instances = $state(instancesData.sort(() => Math.random() - 0.5))
 
   const instanceOrderBy = [['_head', 'status.latency'], ['desc', 'asc']]
-
-  function formatNumber(n: number) {
-    return numeral(n).format()
-  }
 
   async function getStatus(instance: Instance) {
     let statusResp: object | undefined;
@@ -206,6 +202,8 @@
           <th>head</th>
           <th>root</th>
           <th>version</th>
+          <th>ws?</th>
+          <th>uptime</th>
           <th>latency</th>
         </tr>
       </thead>
@@ -219,6 +217,8 @@
             <td><span class="font-mono text-xs {instance._head ? (isConflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             <td>{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>
+            <td>{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
+            <td class="text-xs">{#if instance.status?.server?.uptime_seconds}{formatUptime(instance.status?.server?.uptime_seconds)}{/if}</td>
             <td class="opacity-50">{#if instance.status?.latency}{Math.round(instance.status?.latency)}ms{/if}</td>
           </tr>
         {/each}

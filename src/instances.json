@@ -1,6 +1,8 @@
 [
     {
-        "url": "https://plcbundle.atscan.net"
+        "url": "https://plcbundle.atscan.net",
+        "country": "AT",
+        "maintainer": "@tree.fail"
     },
     {
         "url": "https://plc.j4ck.xyz"

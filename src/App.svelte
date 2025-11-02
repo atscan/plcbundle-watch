@@ -33,7 +33,7 @@
   let autoRefreshEnabled = $state(true)
   let instances = $state(instancesData.sort(() => Math.random() - 0.5))
 
-  const instanceOrderBy = [['_head', 'status.latency'], ['desc', 'asc']]
+  const instanceOrderBy = [['_head', 'status.bundles.last_bundle', 'status.latency'], ['desc', 'asc']]
 
   async function getStatus(instance: Instance) {
     let statusResp: object | undefined;

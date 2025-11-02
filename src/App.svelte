@@ -124,7 +124,7 @@
     </table>
 
     <div class="mt-12 opacity-50">
-      Source: <a href="https://tangled.org/atscan.net/plcbundle-watch">https://tangled.org/atscan.net/plcbundle-watch</a>
+      Source: <a href="https://tangled.org/@tree.fail/plcbundle-watch">https://tangled.org/@tree.fail/plcbundle-watch</a>
     </div>
   </div>
 </main>

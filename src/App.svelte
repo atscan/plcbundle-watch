@@ -223,7 +223,7 @@
         <div class="flex gap-4">
           <div class="mt-4">
             <Progress value={lastKnownBundle.mempoolPercent} class="items-center">
-              <Progress.Circle style="--size: 48px; --thickness: 6px;">
+              <Progress.Circle style="--size: 64px; --thickness: 10px;">
                 <Progress.CircleTrack />
                 <Progress.CircleRange />
               </Progress.Circle>
@@ -233,7 +233,7 @@
           {#if lastKnownBundle.number > 0}
             <div>
               <div class="font-semibold text-2xl animate-pulse">{lastKnownBundle.number + 1}</div>
-              <div>{formatNumber(lastKnownBundle.mempool)} / {formatNumber(BUNDLE_OPS)} <span class="opacity-50">({lastKnownBundle.mempoolPercent}%)</span></div>
+              <div>{formatNumber(lastKnownBundle.mempool || 0)} / {formatNumber(BUNDLE_OPS)} <span class="opacity-50">({lastKnownBundle.mempoolPercent}%)</span></div>
               {#if lastKnownBundle.etaNext}
                 <div class="mt-1 opacity-50">ETA: {formatDistanceToNow(lastKnownBundle.etaNext)}</div>
               {/if}

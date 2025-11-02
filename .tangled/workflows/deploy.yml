@@ -11,6 +11,6 @@ steps:
     command: |
       bun i && bun run build
 
-  - name: deploy
+  - name: deployw
     command: |
       bunx wrangler pages deploy --branch main --project-name plcbundle-watch ./dist/

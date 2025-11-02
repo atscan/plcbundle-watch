@@ -5,10 +5,10 @@
     },
     {
         "url": "https://plc.j4ck.xyz",
-        "modern": false
+        "modern": true
     },
     { 
         "url": "https://plc.indexx.dev",
-        "modern": false
+        "modern": true
     }
   ]

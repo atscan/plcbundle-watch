@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Progress } from '@skeletonlabs/skeleton-svelte';
+  import { formatDistanceToNow, addSeconds, formatDate, formatISO9075 } from 'date-fns';
+  import { Progress, Switch } from '@skeletonlabs/skeleton-svelte';
   import instancesData from './instances.json';
-  import { formatDistanceToNow, addSeconds } from 'date-fns';
   import numeral from 'numeral';
   
+  const AUTO_REFRESH_INTERVAL = 15         // in seconds
+  const BUNDLE_OPS = 10_000
 
   type Instance = {
     url: string,
@@ -20,6 +22,10 @@
     mempoolPercent: 0,
   })
 
+  let isUpdating = $state(false)
+  let canRefresh = $state(true)
+  let lastUpdated = $state(new Date())
+  let autoRefreshEnabled = $state(true)
   let instances = $state(instancesData)
   let instancesSorted = $derived(instances.sort((a, b) => a.status?.responseTime > b.status?.responseTime ? 1 : -1))
 
@@ -56,6 +62,8 @@
   }
 
   async function doCheck() {
+    isUpdating = true
+    canRefresh = false
     for (const i of instances) {
       i.status = undefined
     }
@@ -75,23 +83,39 @@
         }
       }
       instance.status = status
+      lastUpdated = new Date()
     }))
+    isUpdating = false
+    setTimeout(() => (canRefresh = false), 1000)
   }
 
   onMount(() => {
     doCheck()
+
+    setTimeout(() => {
+      if (autoRefreshEnabled) {
+        doCheck()
+      }
+    }, AUTO_REFRESH_INTERVAL * 1000)
   })
 </script>
 
 <main class="w-full mt-10">
   <div class="max-w-4xl mx-auto px-3">
 
-    <header class="flex items-center gap-2 flex-wrap">
+    <header class="flex items-center gap-10 flex-wrap">
       <div class="grow">
-        <h1 class="text-3xl ">plcbundle instances</h1>
+        <h1 class="text-3xl linear-text-gradient">plcbundle instances</h1>
       </div>
-      <div class="">
-          <button type="button" class="btn btn-sm preset-tonal-primary"  onclick={() => doCheck()}>Refresh</button>
+      <div class="flex items-center gap-6">
+        <Switch class="opacity-75" checked={autoRefreshEnabled} onCheckedChange={(x) => autoRefreshEnabled = x.checked} disabled={isUpdating}>
+          <Switch.Control className="data-[state=checked]:preset-filled-success-500">
+            <Switch.Thumb />
+          </Switch.Control>
+          <Switch.Label>Auto-refresh ({AUTO_REFRESH_INTERVAL}s)</Switch.Label>
+          <Switch.HiddenInput />
+        </Switch>
+        <button type="button" class="btn btn-sm preset-tonal-primary"  onclick={() => doCheck()} disabled={canRefresh}>Refresh</button>
       </div>      
     </header>
 
@@ -125,7 +149,7 @@
           {#if lastKnownBundle.number > 0}
             <div>
               <div class="font-semibold text-2xl animate-pulse">{lastKnownBundle.number + 1}</div>
-              <div>{formatNumber(lastKnownBundle.mempool)} / 10,000 <span class="opacity-50">({lastKnownBundle.mempoolPercent}%)</span></div>
+              <div>{formatNumber(lastKnownBundle.mempool)} / {formatNumber(BUNDLE_OPS)} <span class="opacity-50">({lastKnownBundle.mempoolPercent}%)</span></div>
               {#if lastKnownBundle.etaNext}
                 <div class="mt-2 opacity-50">ETA: {formatDistanceToNow(lastKnownBundle.etaNext)}</div>
               {/if}
@@ -165,7 +189,12 @@
     </table>
 
     <div class="mt-12 opacity-50">
-      Source: <a href="https://tangled.org/@tree.fail/plcbundle-watch">https://tangled.org/@tree.fail/plcbundle-watch</a>
+      <div>
+        Last updated: {formatISO9075(lastUpdated)}
+      </div>
+      <div class="mt-4">
+        Source: <a href="https://tangled.org/@tree.fail/plcbundle-watch">https://tangled.org/@tree.fail/plcbundle-watch</a>
+      </div>
     </div>
   </div>
 </main>

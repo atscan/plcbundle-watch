@@ -6,6 +6,7 @@
   import instancesData from './instances.json';
   import numeral from 'numeral';
   
+  const APP_TITLE = 'plcbundle instances'
   const PLC_DIRECTORY = 'plc.directory'
   const ROOT = 'cbab6809a136d6a621906ee11199d3b0faf85b422fe0d0d2c346ce8e9dcd7485'
   const AUTO_REFRESH_INTERVAL = 10         // in seconds
@@ -107,7 +108,17 @@
       recalculateHead()
     }))
     isUpdating = false
+    document.title = genTitle()
     setTimeout(() => { canRefresh = true }, 500)
+  }
+
+  function genTitle () {
+    const arr = []
+    if (lastUpdated > 0) {
+      const upCount = instances.filter(i => i._head)
+      arr.push(`${isConflict ? '⚠️' : '✅'} [${upCount.length}/${instances.length}]`)
+    }
+    return [...arr, APP_TITLE].join(' ')
   }
 
   onMount(async () => {

@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "deploy": "bunx wrangler pages deploy --branch main --project-name plcbundle-watch ./dist"
   },
   "devDependencies": {
     "@skeletonlabs/skeleton": "^4.2.2",

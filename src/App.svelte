@@ -101,7 +101,7 @@
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
             <td>{#if instance.status?.bundles?.last_bundle === lastKnownBundle.number}✅{:else if instance.status}🔄{:else}⌛{/if}</td>
             <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
-            <td>{#if instance.status?.mempool}{instance.status?.mempool.count}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
+            <td>{#if instance.status?.mempool && instance.status?.bundles?.last_bundle === lastKnownBundle.number}{instance.status?.mempool.count}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             <td>{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>

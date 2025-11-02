@@ -8,7 +8,7 @@
   
   const PLC_DIRECTORY = 'plc.directory'
   const ROOT = 'cbab6809a136d6a621906ee11199d3b0faf85b422fe0d0d2c346ce8e9dcd7485'
-  const AUTO_REFRESH_INTERVAL = 15         // in seconds
+  const AUTO_REFRESH_INTERVAL = 10         // in seconds
   const BUNDLE_OPS = 10_000
 
   type Instance = {
@@ -43,7 +43,7 @@
     let url: string = instance.url;
     const start = performance.now();
     try {
-      statusResp = await (await fetch(`${url}/status`)).json()
+      statusResp = await (await fetch(`${url}/status?${Number(new Date())}`)).json()
     } catch (e) {}
     if (!statusResp) {
       url = `https://keyoxide.org/api/3/get/http?url=${encodeURIComponent(url)}&format=text&time=${Date.now()}`
@@ -106,9 +106,8 @@
 
       recalculateHead()
     }))
-
     isUpdating = false
-    setTimeout(() => (canRefresh = false), 1000)
+    setTimeout(() => { canRefresh = true }, 500)
   }
 
   onMount(async () => {
@@ -137,7 +136,7 @@
           <Switch.Label>Auto-refresh ({AUTO_REFRESH_INTERVAL}s)</Switch.Label>
           <Switch.HiddenInput />
         </Switch>
-        <button type="button" class="btn btn-sm preset-tonal-primary"  onclick={() => doCheck()} disabled={canRefresh}>Refresh</button>
+        <button type="button" class="btn btn-sm preset-tonal-primary"  onclick={() => doCheck()} disabled={isUpdating || canRefresh === false}>Refresh</button>
       </div>      
     </header>
 

@@ -1,12 +1,11 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-  import svelteLogo from './assets/svelte.svg'
+  import { onMount } from 'svelte';
 
   type Instance = {
-    url: String,
-    cors?: Boolean,
-    status?: Object,
-    modern?: Boolean,
+    url: string,
+    cors?: boolean,
+    status?: object,
+    modern?: boolean,
   }
 
   let lastKnownBundle = $state({

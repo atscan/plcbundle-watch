@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { Progress } from '@skeletonlabs/skeleton-svelte';
   import instancesData from './instances.json';
+  import { formatDistanceToNow, addSeconds } from 'date-fns';
+  import numeral from 'numeral';
+  
 
   type Instance = {
     url: string,
@@ -12,10 +16,16 @@
   let lastKnownBundle = $state({
     number: 0,
     hash: null,
+    mempool: null,
+    mempoolPercent: 0,
   })
 
   let instances = $state(instancesData)
   let instancesSorted = $derived(instances.sort((a, b) => a.status?.responseTime > b.status?.responseTime ? 1 : -1))
+
+  function formatNumber(n: number) {
+    return numeral(n).format()
+  }
 
   async function getStatus(instance: Instance) {
     let statusResp: object | undefined;
@@ -56,6 +66,13 @@
       if (status?.bundles?.last_bundle > lastKnownBundle.number) {
         lastKnownBundle.number = status?.bundles?.last_bundle
         lastKnownBundle.hash = status?.bundles?.head_hash
+        lastKnownBundle.time = status?.bundles?.end_time
+
+        if (status?.mempool?.count > lastKnownBundle.mempool) {
+          lastKnownBundle.mempool = status?.mempool?.count
+          lastKnownBundle.mempoolPercent = Math.round((lastKnownBundle.mempool/100)*100)/100
+          lastKnownBundle.etaNext = addSeconds(new Date(), status?.mempool?.eta_next_bundle_seconds)
+        }
       }
       instance.status = status
     }))
@@ -69,20 +86,56 @@
 <main class="w-full mt-10">
   <div class="max-w-4xl mx-auto px-3">
 
-    <header>
-      <h1 class="text-3xl">plcbundle instances</h1>
-    </header>
-
-    <div class="flex items-center gap-2 mt-10 flex-wrap">
-      <div class="grow flex items-center text-lg">
-        <div><span class="opacity-50">Last known bundle:</span> <span class="font-semibold">{lastKnownBundle.number}</span> [<span class="font-mono text-base">{lastKnownBundle?.hash?.slice(0, 7)}</span>]</div>
+    <header class="flex items-center gap-2 flex-wrap">
+      <div class="grow">
+        <h1 class="text-3xl ">plcbundle instances</h1>
       </div>
       <div class="">
           <button type="button" class="btn btn-sm preset-tonal-primary"  onclick={() => doCheck()}>Refresh</button>
+      </div>      
+    </header>
+
+    <div class="flex gap-10 mt-6 grid grid-cols-2">
+      <div>
+        <h2 class="opacity-75 text-sm">Last known bundle</h2>
+        <div>
+          <div class="flex items-center gap-5">
+            <div class="font-semibold text-3xl">{lastKnownBundle.number}</div>
+            <div class="mt-1 font-mono badge preset-outlined-primary-500 text-xs">{lastKnownBundle?.hash?.slice(0, 7)}</div>
+          </div>
+          <div>
+            <span class="opacity-50">{#if lastKnownBundle?.time} {formatDistanceToNow(lastKnownBundle.time, { addSuffix: true })}{/if}</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div>
+            <h2 class="opacity-75 text-sm">Next bundle</h2>
+        </div>
+        <div class="flex gap-4">
+          <div class="mt-4">
+            <Progress value={lastKnownBundle.mempoolPercent} class="items-center">
+              <Progress.Circle style="--size: 48px; --thickness: 6px;">
+                <Progress.CircleTrack />
+                <Progress.CircleRange />
+              </Progress.Circle>
+              <!--Progress.ValueText class="text-xs opacity-50" /-->
+            </Progress>
+          </div>
+          {#if lastKnownBundle.number > 0}
+            <div>
+              <div class="font-semibold text-2xl animate-pulse">{lastKnownBundle.number + 1}</div>
+              <div>{formatNumber(lastKnownBundle.mempool)} / 10,000 <span class="opacity-50">({lastKnownBundle.mempoolPercent}%)</span></div>
+              {#if lastKnownBundle.etaNext}
+                <div class="mt-2 opacity-50">ETA: {formatDistanceToNow(lastKnownBundle.etaNext)}</div>
+              {/if}
+            </div>
+          {/if}
+        </div>
       </div>
     </div>      
 
-    <table class="table mt-4">
+    <table class="table mt-10">
       <thead>
         <tr>
           <th>endpoint</th>
@@ -101,7 +154,7 @@
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
             <td>{#if instance.status?.bundles?.last_bundle === lastKnownBundle.number}✅{:else if instance.status}🔄{:else}⌛{/if}</td>
             <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
-            <td>{#if instance.status?.mempool && instance.status?.bundles?.last_bundle === lastKnownBundle.number}{instance.status?.mempool.count}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
+            <td>{#if instance.status?.mempool && instance.status?.bundles?.last_bundle === lastKnownBundle.number}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             <td>{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>

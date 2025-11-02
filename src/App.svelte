@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import instancesData from './instances.json';
 
   type Instance = {
     url: string,
@@ -13,27 +14,18 @@
     hash: null,
   })
 
-  let instances = $state([
-    { url: "https://plcbundle.atscan.net", modern: true },
-    { url: "https://plc.j4ck.xyz", modern: false },
-    { url: "https://plc.indexx.dev", modern: false },
-  ])
-
-   //instancesSorted = $derived(instances.sort())
+  let instances = $state(instancesData)
+  let instancesSorted = $derived(instances.sort((a, b) => a.status?.responseTime > b.status?.responseTime ? 1 : -1))
 
   async function getStatus(instance: Instance) {
     let statusResp: object | undefined;
     let url: string = instance.url;
     const start = performance.now();
-    if (instance.modern === false) {
-      url = `https://keyoxide.org/api/3/get/http?url=${encodeURIComponent(url)}&format=text&time=${Date.now()}`
-    }
-    if (instance.modern) {
-      try {
-        statusResp = await (await fetch(`${url}/status`)).json()
-      } catch (e) {}
-    }
+    try {
+      statusResp = await (await fetch(`${url}/status`)).json()
+    } catch (e) {}
     if (!statusResp) {
+      url = `https://keyoxide.org/api/3/get/http?url=${encodeURIComponent(url)}&format=text&time=${Date.now()}`
       const indexResp = await (await fetch(url)).text()
       const [ _, from, to ] = indexResp?.match(/Range:\s+(\d{6}) - (\d{6})/)
       statusResp = {  
@@ -67,16 +59,11 @@
       }
       instance.status = status
     }))
-
-    instances = instances.sort((a, b) => a.status?.responseTime > b.status?.responseTime ? 1 : -1)
-
   }
 
   onMount(() => {
     doCheck()
   })
-
-  <script>
 </script>
 
 <main class="w-full mt-10">
@@ -101,18 +88,20 @@
           <th>endpoint</th>
           <th>status</th>
           <th>last bundle</th>
+          <th>mempool</th>          
           <th>head</th>
           <th>root</th>
           <th>version</th>
-          <th>rtt</th>
+          <th>latency</th>
         </tr>
       </thead>
       <tbody>
         {#each instances as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
-            <td>{#if instance.status?.bundles?.last_bundle === lastKnownBundle.number}✅{:else if instance.status}🔄{/if}</td>
+            <td>{#if instance.status?.bundles?.last_bundle === lastKnownBundle.number}✅{:else if instance.status}🔄{:else}⌛{/if}</td>
             <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
+            <td>{#if instance.status?.mempool}{instance.status?.mempool.count}{:else if instance.status}<span class="opacity-25">syncing</span>{/if}</td>
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             <td>{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>

@@ -5,11 +5,11 @@
 @import '@skeletonlabs/skeleton/themes/cerberus';
 
 .table th {
-  @apply text-xs opacity-50 font-light px-3 text-left;
+  @apply text-xs opacity-50 font-light px-2 text-left;
 }
 
 .table td {
-  @apply py-1.5 px-3;
+  @apply py-1.5 px-2;
 }
 
 a {

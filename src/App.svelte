@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { formatDistanceToNow, addSeconds, formatDate, formatISO9075 } from 'date-fns';
   import { Progress, Switch } from '@skeletonlabs/skeleton-svelte';
+  import orderBy from "lodash/orderBy";
   import instancesData from './instances.json';
   import numeral from 'numeral';
   
@@ -26,8 +27,9 @@
   let canRefresh = $state(true)
   let lastUpdated = $state(new Date())
   let autoRefreshEnabled = $state(true)
-  let instances = $state(instancesData)
-  let instancesSorted = $derived(instances.sort((a, b) => a.status?.responseTime > b.status?.responseTime ? 1 : -1))
+  let instances = $state(instancesData.sort(() => Math.random() - 0.5))
+
+  const instanceOrderBy = [['status.head', 'status.latency'], ['desc', 'asc']]
 
   function formatNumber(n: number) {
     return numeral(n).format()
@@ -56,7 +58,7 @@
       }
     }
     if (statusResp) {
-      statusResp.responseTime = performance.now() - start;
+      statusResp.latency = performance.now() - start;
     }
     return statusResp
   }
@@ -71,7 +73,9 @@
     await Promise.all(instances.map(async (instance) => {
       const status = await getStatus(instance)
 
-      if (status?.bundles?.last_bundle > lastKnownBundle.number) {
+      instance.status = status
+      instance.status.head = status?.bundles?.last_bundle > lastKnownBundle.number
+      if (instance.status.head) {
         lastKnownBundle.number = status?.bundles?.last_bundle
         lastKnownBundle.hash = status?.bundles?.head_hash
         lastKnownBundle.time = status?.bundles?.end_time
@@ -82,7 +86,6 @@
           lastKnownBundle.etaNext = addSeconds(new Date(), status?.mempool?.eta_next_bundle_seconds)
         }
       }
-      instance.status = status
       lastUpdated = new Date()
     }))
     isUpdating = false
@@ -173,7 +176,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each instances as instance}
+        {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
             <td>{#if instance.status?.bundles?.last_bundle === lastKnownBundle.number}✅{:else if instance.status}🔄{:else}⌛{/if}</td>
@@ -182,7 +185,7 @@
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             <td>{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>
-            <td class="opacity-50">{#if instance.status?.responseTime}{Math.round(instance.status?.responseTime)}ms{/if}</td>
+            <td class="opacity-50">{#if instance.status?.latency}{Math.round(instance.status?.latency)}ms{/if}</td>
           </tr>
         {/each}
       </tbody>

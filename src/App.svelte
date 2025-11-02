@@ -4,6 +4,7 @@
   import { formatDistanceToNow, addSeconds, subSeconds, formatDate, formatISO9075 } from 'date-fns';
   import { Progress, Switch } from '@skeletonlabs/skeleton-svelte';
   import orderBy from "lodash/orderBy";
+  import BundleDownloader from './BundleDownloader.svelte';
   import { formatNumber, formatUptime } from './lib/utils';
   import instancesData from './instances.json';
 
@@ -180,7 +181,7 @@
   })
 </script>
 
-<main class="w-full mt-10">
+<main class="w-full mt-10 mb-16">
   <div class="max-w-5xl mx-auto px-3">
 
     <header class="flex items-center gap-10 flex-wrap">
@@ -299,8 +300,11 @@
         <span class="opacity-75">Root:</span> <span class="font-mono text-xs">{ROOT.slice(0)}</span>
       </div>
     </div>
+    <hr class="hr my-10" />
 
-    <hr class="hr mt-6" />
+    <BundleDownloader instances={instances} />
+
+    <hr class="hr my-6" />
     <div class="mt-2 opacity-50">
       <div>
         Last updated: {formatISO9075(lastUpdated)}
@@ -309,8 +313,7 @@
         Source: <a href="https://tangled.org/@tree.fail/plcbundle-watch">https://tangled.org/@tree.fail/plcbundle-watch</a>
       </div>
     </div>
-    
-
+  
 
   </div>
 </main>

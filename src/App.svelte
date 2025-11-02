@@ -108,17 +108,18 @@
       recalculateHead()
     }))
     isUpdating = false
-    document.title = genTitle()
+    updateTitle()
     setTimeout(() => { canRefresh = true }, 500)
   }
 
-  function genTitle () {
+  function updateTitle () {
     const arr = []
     if (lastUpdated > 0) {
       const upCount = instances.filter(i => i._head)
       arr.push(`${isConflict ? '⚠️' : '✅'} [${upCount.length}/${instances.length}]`)
     }
-    return [...arr, APP_TITLE].join(' ')
+    document.title = [...arr, APP_TITLE].join(' ')
+    return true
   }
 
   onMount(async () => {

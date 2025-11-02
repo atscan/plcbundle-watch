@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { filesize } from 'filesize';
   import { formatDistanceToNow, addSeconds, subSeconds, formatDate, formatISO9075 } from 'date-fns';
   import { Progress, Switch } from '@skeletonlabs/skeleton-svelte';
   import orderBy from "lodash/orderBy";
@@ -18,6 +19,8 @@
       root_hash: string;
       head_hash: string;
       end_time?: string;
+      total_size: number;
+      uncompressed_size: number;
     };
     server: {
       uptime: number;
@@ -44,6 +47,8 @@
     mempoolPercent: number;
     time?: string;
     etaNext?: Date;
+    totalSize: number;
+    totalSizeUncompressed: number;
   }
 
   let lastKnownBundle = $state<LastKnownBundle>({
@@ -128,6 +133,8 @@
           lastKnownBundle.mempool = status.mempool.count
           lastKnownBundle.mempoolPercent = Math.round((lastKnownBundle.mempool/100)*100)/100
           lastKnownBundle.etaNext = addSeconds(new Date(), status.mempool.eta_next_bundle_seconds)
+          lastKnownBundle.totalSize = status.bundles.total_size
+          lastKnownBundle.totalSizeUncompressed = status.bundles.uncompressed_size
         }
       }
       lastUpdated = new Date()
@@ -192,7 +199,7 @@
       </div>      
     </header>
 
-    <div class="flex gap-10 mt-6 grid grid-cols-2">
+    <div class="gap-10 mt-6 grid grid-cols-3">
       <div>
         <h2 class="opacity-75 text-sm">Last known bundle</h2>
         <div>
@@ -228,12 +235,24 @@
               <div class="font-semibold text-2xl animate-pulse">{lastKnownBundle.number + 1}</div>
               <div>{formatNumber(lastKnownBundle.mempool)} / {formatNumber(BUNDLE_OPS)} <span class="opacity-50">({lastKnownBundle.mempoolPercent}%)</span></div>
               {#if lastKnownBundle.etaNext}
-                <div class="mt-2 opacity-50">ETA: {formatDistanceToNow(lastKnownBundle.etaNext)}</div>
+                <div class="mt-1 opacity-50">ETA: {formatDistanceToNow(lastKnownBundle.etaNext)}</div>
               {/if}
             </div>
           {/if}
         </div>
       </div>
+      {#if lastKnownBundle.number > 0}
+        <div class="">
+          <div>
+              <h2 class="opacity-75 text-sm">Statistics</h2>
+          </div>
+          <div class="mt-2 grid grid-cols-1 gap-1">
+            <div><span class="opacity-50">Instances:</span> {instances.filter(i => i._head).length} latest / {instances.length} total</div>
+            <div><span class="opacity-50">Bundles Size:</span> {filesize(lastKnownBundle.totalSize)}</div>
+            <div><span class="opacity-50">Uncompressed:</span> {filesize(lastKnownBundle.totalSizeUncompressed)}</div>
+          </div>
+        </div>
+      {/if}
     </div>      
 
     <table class="table mt-10">

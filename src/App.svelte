@@ -125,7 +125,7 @@
     await Promise.all(instances.map(async (instance) => {
       const status = await getStatus(instance)
       instance.status = status
-      if (status?.bundles?.last_bundle && status.bundles.last_bundle > lastKnownBundle.number) {
+      if (status?.bundles?.last_bundle && status.bundles.last_bundle >= lastKnownBundle.number) {
         lastKnownBundle.number = status.bundles.last_bundle
         lastKnownBundle.hash = status.bundles.head_hash
         lastKnownBundle.time = status.bundles.end_time
@@ -133,7 +133,7 @@
         if (status?.mempool?.count && (!lastKnownBundle.mempool || status.mempool.count > lastKnownBundle.mempool)) {
           lastKnownBundle.mempool = status.mempool.count
           lastKnownBundle.mempoolPercent = Math.round((lastKnownBundle.mempool/100)*100)/100
-          lastKnownBundle.etaNext = addSeconds(new Date(), status.mempool.eta_next_bundle_seconds)
+          lastKnownBundle.etaNext = status.mempool.eta_next_bundle_seconds ? addSeconds(new Date(), status.mempool.eta_next_bundle_seconds) : null
           lastKnownBundle.totalSize = status.bundles.total_size
           lastKnownBundle.totalSizeUncompressed = status.bundles.uncompressed_size
         }
@@ -249,6 +249,7 @@
           </div>
           <div class="mt-2 grid grid-cols-1 gap-1">
             <div><span class="opacity-50">Instances:</span> {instances.filter(i => i._head).length} latest / {instances.length} total</div>
+            <div><span class="opacity-50">PLC Operations:</span> {formatNumber((lastKnownBundle.number * BUNDLE_OPS) + lastKnownBundle.mempool)}</div>
             <div><span class="opacity-50">Bundles Size:</span> {filesize(lastKnownBundle.totalSize)}</div>
             <div><span class="opacity-50">Uncompressed:</span> {filesize(lastKnownBundle.totalSizeUncompressed)}</div>
           </div>
@@ -265,7 +266,7 @@
           <th>mempool</th>    
           <th>age</th>      
           <th>head</th>
-          <th>root</th>
+          <th>first</th>
           <th>version</th>
           <th>ws?</th>
           <th>uptime</th>
@@ -297,7 +298,7 @@
         <span class="opacity-75">PLC Directory:</span> <a href="https://{PLC_DIRECTORY}">{PLC_DIRECTORY}</a> <span class="opacity-50">(origin)</span>
       </div>      
       <div class="mt-2">
-        <span class="opacity-75">Root:</span> <span class="font-mono text-xs">{ROOT.slice(0)}</span>
+        <span class="opacity-75">First hash (root):</span> <span class="font-mono text-xs">{ROOT.slice(0)}</span>
       </div>
 
       <div class="mt-6 opacity-50">

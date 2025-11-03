@@ -320,8 +320,8 @@
 
     <hr class="hr mb-6 mt-12" />
     <div class="opacity-50">
-      <div class="mt-4">
-        Source: <a href="https://tangled.org/@tree.fail/plcbundle-watch">https://tangled.org/@tree.fail/plcbundle-watch</a>
+      <div class="mt-4 text-sm">
+        <a href="https://tangled.org/@tree.fail/plcbundle-watch">Source Code</a> | ❤️ Made with love for <a href="https://atproto.com/">#atproto</a> community by <a href="https://bsky.app/profile/tree.fail">@tree.fail</a> using <a href="https://vite.dev/">Vite</a> & <a href="https://svelte.dev/">Svelte</a>
       </div>
     </div>
   

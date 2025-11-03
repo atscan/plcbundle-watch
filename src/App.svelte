@@ -15,6 +15,7 @@
   const BUNDLE_OPS = 10_000
 
   type StatusResponse = {
+    ok: boolean;
     bundles: {
       last_bundle: number;
       root_hash: string;
@@ -46,8 +47,9 @@
     hash: string | null;
     mempool: number | null;
     mempoolPercent: number;
+    mempoolBundle: number;
     time?: string;
-    etaNext?: Date;
+    etaNext?: Date | null;
     totalSize: number;
     totalSizeUncompressed: number;
   }
@@ -119,22 +121,25 @@
     isUpdating = true
     canRefresh = false
     for (const i of instances) {
-      i.status = undefined
+      if (i.status) {
+        i.status.ok = false
+      }
     }
-
-    lastKnownBundle.mempool = null
-    lastKnownBundle.mempoolPercent = 0
 
     await Promise.all(instances.map(async (instance) => {
       const status = await getStatus(instance)
       instance.status = status
+      if (instance.status) {
+        instance.status.ok = true
+      }
 
       if (status?.bundles?.last_bundle && status.bundles.last_bundle >= lastKnownBundle.number) {
         lastKnownBundle.number = status.bundles.last_bundle
         lastKnownBundle.hash = status.bundles.head_hash
         lastKnownBundle.time = status.bundles.end_time
 
-        if (status?.mempool?.count && (!lastKnownBundle.mempool || status.mempool.count > lastKnownBundle.mempool)) {
+        if (status?.mempool?.count && (!lastKnownBundle.mempool || status.mempool.count > lastKnownBundle.mempool || status.bundles.last_bundle > lastKnownBundle.mempoolBundle)) {
+          lastKnownBundle.mempoolBundle = status.bundles.last_bundle
           lastKnownBundle.mempool = status.mempool.count
           lastKnownBundle.mempoolPercent = Math.round((lastKnownBundle.mempool/100)*100)/100
           lastKnownBundle.etaNext = status.mempool.eta_next_bundle_seconds ? addSeconds(new Date(), status.mempool.eta_next_bundle_seconds) : null
@@ -227,7 +232,7 @@
         </div>
         <div class="flex gap-4">
           <div class="mt-4">
-            <Progress value={lastKnownBundle.mempoolPercent} class="items-center">
+            <Progress value={lastKnownBundle.mempoolPercent} class="items-center {lastKnownBundle.mempoolPercent > 98 ? 'animate-pulse' : ''}">
               <Progress.Circle style="--size: 64px; --thickness: 10px;">
                 <Progress.CircleTrack />
                 <Progress.CircleRange />
@@ -253,7 +258,7 @@
           </div>
           <div class="mt-2 grid grid-cols-1 gap-1">
             <div><span class="opacity-50">Instances:</span> {instances.filter(i => i._head).length} latest / {instances.length} total</div>
-            <div><span class="opacity-50">PLC Operations:</span> {formatNumber((lastKnownBundle.number * BUNDLE_OPS) + lastKnownBundle.mempool)}</div>
+            <div><span class="opacity-50">PLC Operations:</span> {formatNumber((lastKnownBundle.number * BUNDLE_OPS) + (lastKnownBundle.mempool || 0))}</div>
             <div><span class="opacity-50">Bundles Size:</span> {filesize(lastKnownBundle.totalSize)}</div>
             <div><span class="opacity-50">Uncompressed:</span> {filesize(lastKnownBundle.totalSizeUncompressed)}</div>
           </div>
@@ -281,16 +286,16 @@
         {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
-            <td>{#if instance._head}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status}🔄{:else}⌛{/if}</td>
+            <td>{#if instance._head && instance.status?.ok}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status}🔄{:else}⌛{/if}</td>
             <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
             <td>{#if instance.status?.mempool && instance._head}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
             <td class="text-xs opacity-50">{#if instance.status?.mempool && instance._head}{instance.status?.mempool.last_op_age_seconds || 0}s{/if}</td>
             <td><span class="font-mono text-xs {instance._head ? (isConflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
             <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
-            <td class="text-xs">{#if instance.status?.server?.version}<a href="{instance.url}/status">{instance.status?.server?.version}</a>{/if}</td>
+            <td class="text-xs">{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.uptime_seconds}{formatUptime(instance.status?.server?.uptime_seconds)}{/if}</td>
-            <td class="text-xs opacity-50">{#if instance.status?.latency}{Math.round(instance.status?.latency)}ms{/if}</td>
+            <td class="text-xs opacity-50">{#if instance.status?.latency}<a href="{instance.url}/status">{Math.round(instance.status?.latency)}ms</a>{/if}</td>
           </tr>
         {/each}
       </tbody>

@@ -286,7 +286,7 @@
         {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
-            <td>{#if instance._head && instance.status?.ok}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status}🔄{:else}⌛{/if}</td>
+            <td>{#if instance._head && instance.status?.ok}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status && instance.status?.ok}🔄{:else}⌛{/if}</td>
             <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
             <td>{#if instance.status?.mempool && instance._head}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
             <td class="text-xs opacity-50">{#if instance.status?.mempool && instance._head}{instance.status?.mempool.last_op_age_seconds || 0}s{/if}</td>

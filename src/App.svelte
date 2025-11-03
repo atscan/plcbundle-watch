@@ -122,9 +122,13 @@
       i.status = undefined
     }
 
+    lastKnownBundle.mempool = null
+    lastKnownBundle.mempoolPercent = 0
+
     await Promise.all(instances.map(async (instance) => {
       const status = await getStatus(instance)
       instance.status = status
+
       if (status?.bundles?.last_bundle && status.bundles.last_bundle >= lastKnownBundle.number) {
         lastKnownBundle.number = status.bundles.last_bundle
         lastKnownBundle.hash = status.bundles.head_hash

@@ -299,16 +299,17 @@
       <div class="mt-2">
         <span class="opacity-75">Root:</span> <span class="font-mono text-xs">{ROOT.slice(0)}</span>
       </div>
+
+      <div class="mt-6 opacity-50">
+        Last updated: {formatISO9075(lastUpdated)}
+      </div>
     </div>
     <hr class="hr my-10" />
 
     <BundleDownloader instances={instances} />
 
-    <hr class="hr my-6" />
-    <div class="mt-2 opacity-50">
-      <div>
-        Last updated: {formatISO9075(lastUpdated)}
-      </div>
+    <hr class="hr mb-6 mt-12" />
+    <div class="opacity-50">
       <div class="mt-4">
         Source: <a href="https://tangled.org/@tree.fail/plcbundle-watch">https://tangled.org/@tree.fail/plcbundle-watch</a>
       </div>

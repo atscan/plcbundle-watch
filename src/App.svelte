@@ -1,9 +1,10 @@
 <script lang="ts">
+
   import { onMount } from 'svelte';
   import { filesize } from 'filesize';
   import { formatDistanceToNow, addSeconds, subSeconds, formatDate, formatISO9075 } from 'date-fns';
   import { Progress, Switch } from '@skeletonlabs/skeleton-svelte';
-  import orderBy from "lodash/orderBy";
+  import orderBy from 'lodash/orderBy';
   import BundleDownloader from './BundleDownloader.svelte';
   import { formatNumber, formatUptime } from './lib/utils';
   import instancesData from './instances.json';
@@ -21,8 +22,8 @@
       root_hash: string;
       head_hash: string;
       end_time?: string;
-      total_size: number;
-      uncompressed_size: number;
+      total_size?: number;
+      uncompressed_size?: number;
     };
     server: {
       uptime: number;
@@ -34,10 +35,14 @@
     latency?: number;
   }
 
+  type StatusResponseError = {
+    error: string;
+  }
+
   type Instance = {
     url: string;
     cors?: boolean;
-    status?: StatusResponse;
+    status?: StatusResponse | StatusResponseError;
     modern?: boolean;
     _head?: boolean;
   }
@@ -50,14 +55,15 @@
     mempoolBundle: number;
     time?: string;
     etaNext?: Date | null;
-    totalSize: number;
-    totalSizeUncompressed: number;
+    totalSize?: number | null;
+    totalSizeUncompressed?: number | null;
   }
 
   let lastKnownBundle = $state<LastKnownBundle>({
     number: 0,
     hash: null,
     mempool: null,
+    mempoolBundle: 0,
     mempoolPercent: 0,
   })
 
@@ -68,18 +74,27 @@
   let autoRefreshEnabled = $state(true)
   let instances = $state<Instance[]>(instancesData.sort(() => Math.random() - 0.5))
 
-  const instanceOrderBy = [['_head', 'status.bundles.last_bundle', 'status.latency'], ['desc', 'desc', 'asc']]
+  const instanceOrderBy = [['status.error', '_head', 'status.bundles.last_bundle', 'status.latency'], ['desc', 'desc', 'desc', 'asc']]
 
-  async function getStatus(instance: Instance): Promise<StatusResponse | undefined> {
+  async function getStatus(instance: Instance): Promise<StatusResponse | StatusResponseError> {
     let statusResp: StatusResponse | undefined;
     let url: string = instance.url;
+    let lastError: string | undefined;
     const start = performance.now();
     try {
       statusResp = await (await fetch(`${url}/status?${Number(new Date())}`)).json()
-    } catch (e) {}
+    } catch (e: any) {
+      lastError = e.message;
+    }
     if (!statusResp) {
       url = `https://keyoxide.org/api/3/get/http?url=${encodeURIComponent(url)}&format=text&time=${Date.now()}`
-      const indexResp = await (await fetch(url)).text()
+
+      let indexResp: string | undefined;
+      try {
+        indexResp = await (await fetch(url)).text()
+      } catch(e: any) {
+        lastError = e.message;
+      }
       const match = indexResp?.match(/Range:\s+(\d{6}) - (\d{6})/)
       if (match) {
         const [, from, to] = match
@@ -87,6 +102,7 @@
         const headMatch = indexResp?.match(/Head: ([a-f0-9]{64})/)
         
         statusResp = {  
+          ok: true,
           bundles: {
             last_bundle: Number(to),
             root_hash: rootMatch ? rootMatch[1] : '',
@@ -99,16 +115,20 @@
       }
     }
     if (statusResp) {
+      statusResp.ok = true
       statusResp.latency = performance.now() - start;
     }
     //if (instance.url === 'https://plc.j4ck.xyz') { statusResp.bundles.head_hash = 'f3ad3544452b2c078cba24990486bb9c277a1155'; }
-    return statusResp
+    return statusResp ?? { error: lastError || 'unknown error' }
   }
 
   function recalculateHead() {
     isConflict = false
     const headHashes: string[] = []
     for (const instance of instances) {
+      if (instance.status && 'error' in instance.status) {
+        continue
+      }
       instance._head = instance.status?.bundles?.last_bundle === lastKnownBundle.number
       if (instance._head && instance.status?.bundles?.head_hash) {
         headHashes.push(instance.status.bundles.head_hash)
@@ -121,32 +141,36 @@
     isUpdating = true
     canRefresh = false
     for (const i of instances) {
-      if (i.status) {
+      if (i.status && 'ok' in i.status) {
         i.status.ok = false
       }
     }
 
     await Promise.all(instances.map(async (instance) => {
       const status = await getStatus(instance)
-      instance.status = status
-      if (instance.status) {
-        instance.status.ok = true
+      if (!status) {
+        return false
       }
 
-      if (status?.bundles?.last_bundle && status.bundles.last_bundle >= lastKnownBundle.number) {
-        lastKnownBundle.number = status.bundles.last_bundle
-        lastKnownBundle.hash = status.bundles.head_hash
-        lastKnownBundle.time = status.bundles.end_time
+      instance.status = status
+      if ('ok' in status && status.ok) {
 
-        if (status?.mempool?.count && (!lastKnownBundle.mempool || status.mempool.count > lastKnownBundle.mempool || status.bundles.last_bundle > lastKnownBundle.mempoolBundle)) {
-          lastKnownBundle.mempoolBundle = status.bundles.last_bundle
-          lastKnownBundle.mempool = status.mempool.count
-          lastKnownBundle.mempoolPercent = Math.round((lastKnownBundle.mempool/100)*100)/100
-          lastKnownBundle.etaNext = status.mempool.eta_next_bundle_seconds ? addSeconds(new Date(), status.mempool.eta_next_bundle_seconds) : null
-          lastKnownBundle.totalSize = status.bundles.total_size
-          lastKnownBundle.totalSizeUncompressed = status.bundles.uncompressed_size
+        if (status?.bundles?.last_bundle && status.bundles.last_bundle >= lastKnownBundle.number) {
+          lastKnownBundle.number = status.bundles.last_bundle
+          lastKnownBundle.hash = status.bundles.head_hash
+          lastKnownBundle.time = status.bundles.end_time
+
+          if (status?.mempool?.count && (!lastKnownBundle.mempool || status.mempool.count > lastKnownBundle.mempool || status.bundles.last_bundle > lastKnownBundle.mempoolBundle)) {
+            lastKnownBundle.mempoolBundle = status.bundles.last_bundle
+            lastKnownBundle.mempool = status.mempool.count
+            lastKnownBundle.mempoolPercent = Math.round((lastKnownBundle.mempool/100)*100)/100
+            lastKnownBundle.etaNext = status.mempool.eta_next_bundle_seconds ? addSeconds(new Date(), status.mempool.eta_next_bundle_seconds) : null
+            lastKnownBundle.totalSize = status.bundles.total_size
+            lastKnownBundle.totalSizeUncompressed = status.bundles.uncompressed_size
+          }
         }
       }
+      
       lastUpdated = new Date()
 
       recalculateHead()
@@ -168,19 +192,20 @@
 
   let autoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-  onMount(async () => {
-    await doCheck()
+  onMount(() =>  {
+    doCheck().then(() => {
+      const scheduleRefresh = () => {
+        autoRefreshTimer = setTimeout(() => {
+          if (autoRefreshEnabled) {
+            doCheck()
+          }
+          scheduleRefresh()
+        }, AUTO_REFRESH_INTERVAL * 1000)
+      }
+      
+      scheduleRefresh()
 
-    const scheduleRefresh = () => {
-      autoRefreshTimer = setTimeout(() => {
-        if (autoRefreshEnabled) {
-          doCheck()
-        }
-        scheduleRefresh()
-      }, AUTO_REFRESH_INTERVAL * 1000)
-    }
-    
-    scheduleRefresh()
+    })
 
     return () => {
       if (autoRefreshTimer) {
@@ -199,7 +224,7 @@
       </div>
       <div class="flex items-center gap-6">
         <Switch class="opacity-75" checked={autoRefreshEnabled} onCheckedChange={(x) => autoRefreshEnabled = x.checked} disabled={isUpdating}>
-          <Switch.Control className="data-[state=checked]:preset-filled-success-500">
+          <Switch.Control class="data-[state=checked]:preset-filled-success-500">
             <Switch.Thumb />
           </Switch.Control>
           <Switch.Label>Auto-refresh ({AUTO_REFRESH_INTERVAL}s)</Switch.Label>
@@ -259,8 +284,8 @@
           <div class="mt-2 grid grid-cols-1 gap-1">
             <div><span class="opacity-50">Instances:</span> {instances.filter(i => i._head).length} latest / {instances.length} total</div>
             <div><span class="opacity-50">PLC Operations:</span> {formatNumber((lastKnownBundle.number * BUNDLE_OPS) + (lastKnownBundle.mempool || 0))}</div>
-            <div><span class="opacity-50">Bundles Size:</span> {filesize(lastKnownBundle.totalSize)}</div>
-            <div><span class="opacity-50">Uncompressed:</span> {filesize(lastKnownBundle.totalSizeUncompressed)}</div>
+            <div><span class="opacity-50">Bundles Size:</span> {#if lastKnownBundle.totalSize}{filesize(lastKnownBundle.totalSize)}{/if}</div>
+            <div><span class="opacity-50">Uncompressed:</span> {#if lastKnownBundle.totalSizeUncompressed}{filesize(lastKnownBundle.totalSizeUncompressed)}{/if}</div>
           </div>
         </div>
       {/if}
@@ -286,12 +311,17 @@
         {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
-            <td>{#if instance._head && instance.status?.ok}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status && instance.status?.ok}🔄{:else}⌛{/if}</td>
-            <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
-            <td>{#if instance.status?.mempool && instance._head}{formatNumber(instance.status?.mempool.count)}{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
-            <td class="text-xs opacity-50">{#if instance.status?.mempool && instance._head}{instance.status?.mempool.last_op_age_seconds || 0}s{/if}</td>
-            <td><span class="font-mono text-xs {instance._head ? (isConflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
-            <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
+            <td>{#if instance._head && instance.status?.ok}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status && instance.status?.ok}🔄{:else if instance.status?.error}❌{:else}⌛{/if}</td>
+            {#if instance.status?.error}
+              <td colspan="5" class="opacity-50 text-xs">Error: {instance.status?.error}</td>
+            {:else}
+              <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
+              <td>{#if instance.status?.mempool && instance._head}{formatNumber(instance.status?.mempool.count)}{:else if instance.status?.error}<span class="opacity-25 text-xs">error</span>{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
+              <td class="text-xs opacity-50">{#if instance.status?.mempool && instance._head}{instance.status?.mempool.last_op_age_seconds || 0}s{/if}</td>
+              <td><span class="font-mono text-xs {instance._head ? (isConflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
+              <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
+            {/if}
+
             <td class="text-xs">{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.uptime_seconds}{formatUptime(instance.status?.server?.uptime_seconds)}{/if}</td>

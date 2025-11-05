@@ -18,5 +18,10 @@
     },
     {
         "url": "https://plc.tartarus.us"
+    },
+    {
+        "url": "https://plcbundle.snek.cc",
+        "country": "US",
+        "maintainer": "@jackvalinsky.com"
     }
-  ]
+]

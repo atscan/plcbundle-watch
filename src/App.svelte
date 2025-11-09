@@ -31,6 +31,7 @@
     mempool?: {
       count: number;
       eta_next_bundle_seconds: number;
+      last_time: Date;
     };
     latency?: number;
   }
@@ -45,6 +46,7 @@
     status?: StatusResponse | StatusResponseError;
     modern?: boolean;
     _head?: boolean;
+    _conflict?: boolean;
   }
 
   type LastKnownBundle = {
@@ -53,6 +55,7 @@
     mempool: number | null;
     mempoolPercent: number;
     mempoolBundle: number;
+    lastTime?: Date;
     time?: string;
     etaNext?: Date | null;
     totalSize?: number | null;
@@ -69,7 +72,9 @@
 
   let isUpdating = $state(false)
   let canRefresh = $state(true)
-  let isConflict = $state(false)
+  let consensus = $state({})
+  let isConflict = $state(consensus)
+  let instancesInConflict = $state<string[]>([])
   let lastUpdated = $state(new Date())
   let autoRefreshEnabled = $state(true)
   let instances = $state<Instance[]>(instancesData.sort(() => Math.random() - 0.5))
@@ -124,17 +129,32 @@
 
   function recalculateHead() {
     isConflict = false
-    const headHashes: string[] = []
+    instancesInConflict = []
+    const headHashes: any = {}
     for (const instance of instances) {
       if (instance.status && 'error' in instance.status) {
         continue
       }
       instance._head = instance.status?.bundles?.last_bundle === lastKnownBundle.number
       if (instance._head && instance.status?.bundles?.head_hash) {
-        headHashes.push(instance.status.bundles.head_hash)
+        if (!headHashes[instance.status.bundles.head_hash]) {
+          headHashes[instance.status.bundles.head_hash] = []
+        }
+        headHashes[instance.status.bundles.head_hash].push(instance.url)
       }
     }
-    isConflict = [...new Set(headHashes)].length > 1
+    // second pass
+    const sorted: any = Object.fromEntries(
+      Object.entries(headHashes).sort(([, a]: any, [, b]: any) => b.length - a.length)
+    )
+    for (const instance of instances) {
+      if (Object.keys(sorted).length > 1 && Object.keys(sorted)[1] && sorted[Object.keys(sorted)[1]].includes(instance.url)) {
+        instance._conflict = true
+        instancesInConflict.push(instance.url)
+      }
+    }
+    //const uniq = [...new Set(headHashes)]
+    isConflict = instancesInConflict.length > Math.ceil(instances.length/2)
   }
 
   async function doCheck() {
@@ -163,6 +183,7 @@
           if (status?.mempool?.count && (!lastKnownBundle.mempool || status.mempool.count > lastKnownBundle.mempool || status.bundles.last_bundle > lastKnownBundle.mempoolBundle)) {
             lastKnownBundle.mempoolBundle = status.bundles.last_bundle
             lastKnownBundle.mempool = status.mempool.count
+            lastKnownBundle.lastTime = status.mempool.last_time
             lastKnownBundle.mempoolPercent = Math.round((lastKnownBundle.mempool/100)*100)/100
             lastKnownBundle.etaNext = status.mempool.eta_next_bundle_seconds ? addSeconds(new Date(), status.mempool.eta_next_bundle_seconds) : null
             lastKnownBundle.totalSize = status.bundles.total_size
@@ -249,6 +270,13 @@
           <div>
             <span class="opacity-50">{#if lastKnownBundle?.time} {formatDistanceToNow(lastKnownBundle.time, { addSuffix: true })}{/if}</span>
           </div>
+          <div class="mt-1">
+            {#if instancesInConflict.length > 0}
+              ⚠️ Fork alert on {instancesInConflict.length} instances!
+            {:else if !isConflict}
+              ✅ Everything fine!
+            {/if}
+          </div>
         </div>
       </div>
       <div>
@@ -311,14 +339,14 @@
         {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
-            <td>{#if instance._head && instance.status?.ok}{#if isConflict}⚠️{:else}✅{/if}{:else if instance.status && instance.status?.ok}🔄{:else if instance.status?.error}❌{:else}⌛{/if}</td>
+            <td>{#if instance._head && instance.status?.ok}{#if instance._conflict}⚠️{:else}✅{/if}{:else if instance.status && instance.status?.ok}🔄{:else if instance.status?.error}❌{:else}⌛{/if}</td>
             {#if instance.status?.error}
               <td colspan="5" class="opacity-50 text-xs">Error: {instance.status?.error}</td>
             {:else}
-              <td>{#if instance.status?.bundles?.last_bundle}{instance.status?.bundles?.last_bundle}{/if}</td>
-              <td>{#if instance.status?.mempool && instance._head}{formatNumber(instance.status?.mempool.count)}{:else if instance.status?.error}<span class="opacity-25 text-xs">error</span>{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
-              <td class="text-xs opacity-50">{#if instance.status?.mempool && instance._head}{instance.status?.mempool.last_op_age_seconds || 0}s{/if}</td>
-              <td><span class="font-mono text-xs {instance._head ? (isConflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
+              <td>{#if instance.status?.bundles?.last_bundle}<span class="{instance._conflict ? 'text-error-600' : ''}">{instance.status?.bundles?.last_bundle}</span>{/if}</td>
+              <td>{#if instance.status?.mempool && instance._head}<span class="{instance._conflict ? 'text-error-600' : ''}">{formatNumber(instance.status?.mempool.count)}</span>{:else if instance.status?.error}<span class="opacity-25 text-xs">error</span>{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
+              <td>{#if instance.status?.mempool && instance._head}<span class="text-xs opacity-50 {instance._conflict ? 'text-error-600' : ''}">{instance.status?.mempool.last_op_age_seconds || 0}s</span>{/if}</td>
+              <td><span class="font-mono text-xs {instance._head ? (instance._conflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
               <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             {/if}
 

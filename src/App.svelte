@@ -148,7 +148,7 @@
       Object.entries(headHashes).sort(([, a]: any, [, b]: any) => b.length - a.length)
     )
     for (const instance of instances) {
-      if (Object.keys(sorted).length > 1 && Object.keys(sorted)[1] && sorted[Object.keys(sorted)[1]].includes(instance.url)) {
+      if (Object.keys(sorted).length > 1 && Object.keys(sorted)[0] && !sorted[Object.keys(sorted)[0]].includes(instance.url)) {
         instance._conflict = true
         instancesInConflict.push(instance.url)
       }
@@ -202,9 +202,9 @@
   }
 
   function normalizedVersion(version: string) {
-    const m = version.trim().match(/^([^\s]+)\.\d+\.\d+\-[0-9a-f]+\+dirty$/)
+    const m = version.trim().match(/^([^\s]+)\.\d+\.\d+\-[0-9a-f]+(\+dirty|)$/)
     if (m) {
-      return `${m[1]}+dev`
+      return `${m[1]}+dirty`
     }
     return version
   }

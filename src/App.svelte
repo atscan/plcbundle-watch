@@ -204,7 +204,7 @@
   function updateTitle() {
     const arr: string[] = []
     if (lastUpdated) {
-      const upCount = instances.filter(i => i._head)
+      const upCount = instances.filter(i => i._head && !i._conflict)
       arr.push(`${isConflict ? '⚠️' : '✅'} [${upCount.length}/${instances.length}]`)
     }
     document.title = [...arr, APP_TITLE].join(' ')
@@ -310,7 +310,7 @@
               <h2 class="opacity-75 text-sm">Statistics</h2>
           </div>
           <div class="mt-2 grid grid-cols-1 gap-1">
-            <div><span class="opacity-50">Instances:</span> {instances.filter(i => i._head).length} latest / {instances.length} total</div>
+            <div><span class="opacity-50">Instances:</span> {instances.filter(i => i._head && !i._conflict).length} latest / {instances.length} total</div>
             <div><span class="opacity-50">PLC Operations:</span> {formatNumber((lastKnownBundle.number * BUNDLE_OPS) + (lastKnownBundle.mempool || 0))}</div>
             <div><span class="opacity-50">Bundles Size:</span> {#if lastKnownBundle.totalSize}{filesize(lastKnownBundle.totalSize)}{/if}</div>
             <div><span class="opacity-50">Uncompressed:</span> {#if lastKnownBundle.totalSizeUncompressed}{filesize(lastKnownBundle.totalSizeUncompressed)}{/if}</div>

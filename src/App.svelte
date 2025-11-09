@@ -201,6 +201,14 @@
     setTimeout(() => { canRefresh = true }, 500)
   }
 
+  function normalizedVersion(version: string) {
+    const m = version.trim().match(/^([^\s]+)\.\d+\.\d+\-[0-9a-f]+\+dirty$/)
+    if (m) {
+      return `${m[1]}+dev`
+    }
+    return version
+  }
+
   function updateTitle() {
     const arr: string[] = []
     if (lastUpdated) {
@@ -350,7 +358,7 @@
               <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             {/if}
 
-            <td class="text-xs">{#if instance.status?.server?.version}{instance.status?.server?.version}{/if}</td>
+            <td class="text-xs">{#if instance.status?.server?.version}<span title={instance.status?.server?.version}>{normalizedVersion(instance.status?.server?.version)}</span>{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.uptime_seconds}{formatUptime(instance.status?.server?.uptime_seconds)}{/if}</td>
             <td class="text-xs opacity-50">{#if instance.status?.latency}<a href="{instance.url}/status">{Math.round(instance.status?.latency)}ms</a>{/if}</td>

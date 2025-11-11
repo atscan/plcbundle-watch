@@ -1,37 +1,42 @@
 [
-    {
-        "url": "https://plcbundle.atscan.net",
-        "country": "AT",
-        "maintainer": "@tree.fail"
-    },
-    {
-        "url": "https://plcbundle2.atscan.net",
-        "country": "CZ",
-        "maintainer": "@tree.fail"
-    },    
-    {
-        "url": "https://plcbundle3.atscan.net",
-        "country": "CZ",
-        "maintainer": "@tree.fail"
-    },        
-    {
-        "url": "https://plc.j4ck.xyz"
-    },
-    { 
-        "url": "https://plc.indexx.dev"
-    },
-    {
-        "url": "https://plc.nyxt.dev"
-    },
-    {
-        "url": "https://plc.madebydanny.uk"
-    },
-    {
-        "url": "https://plc.tartarus.us"
-    },
-    {
-        "url": "https://plcbundle.snek.cc",
-        "country": "US",
-        "maintainer": "@jackvalinsky.com"
-    }
+	{
+		"url": "https://plcbundle.atscan.net",
+		"country": "AT",
+		"maintainer": "@tree.fail"
+	},
+	{
+		"url": "https://plcbundle2.atscan.net",
+		"country": "CZ",
+		"maintainer": "@tree.fail"
+	},
+	{
+		"url": "https://plcbundle3.atscan.net",
+		"country": "CZ",
+		"maintainer": "@tree.fail"
+	},
+	{
+		"url": "https://plc.j4ck.xyz"
+	},
+	{
+		"url": "https://plc.indexx.dev"
+	},
+	{
+		"url": "https://plc.nyxt.dev"
+	},
+	{
+		"url": "https://plc.madebydanny.uk"
+	},
+	{
+		"url": "https://plc.tartarus.us"
+	},
+	{
+		"url": "https://plcbundle.snek.cc",
+		"country": "US",
+		"maintainer": "@jackvalinsky.com"
+	},
+	{
+		"url": "https://plc.dane.computer",
+		"country": "CA",
+		"maintainer": "@dane.is.extraordinarily.cool"
+	}
 ]

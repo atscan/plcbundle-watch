@@ -362,7 +362,7 @@
           <th>mempool</th>    
           <th>age</th>      
           <th>head</th>
-          <th>first</th>
+          <th>root</th>
           <th>version</th>
           <th>rsv?</th>
           <th>ws?</th>

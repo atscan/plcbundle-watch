@@ -418,9 +418,8 @@
         Last updated: {formatISO9075(lastUpdated)}
       </div>
     </div>
-    <hr class="hr my-10" />
-
-    <BundleDownloader instances={instances} />
+    <!--hr class="hr my-10" /-->
+    <!--BundleDownloader instances={instances} /-->
 
     <hr class="hr mb-6 mt-12" />
     <div class="opacity-50">

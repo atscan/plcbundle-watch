@@ -2,7 +2,7 @@
 
   import { onMount } from 'svelte';
   import { filesize } from 'filesize';
-  import { formatDistanceToNow, addSeconds, subSeconds, formatDate, formatISO9075 } from 'date-fns';
+  import { formatDistanceToNow, addSeconds, subSeconds, formatDate, formatISO9075, differenceInSeconds } from 'date-fns';
   import { Progress, Switch } from '@skeletonlabs/skeleton-svelte';
   import orderBy from 'lodash/orderBy';
   import BundleDownloader from './BundleDownloader.svelte';
@@ -11,9 +11,13 @@
 
   const APP_TITLE = 'plcbundle instances'
   const PLC_DIRECTORY = 'plc.directory'
-  const ROOT = 'cbab6809a136d6a621906ee11199d3b0faf85b422fe0d0d2c346ce8e9dcd7485'
+  const ROOT = 'f743c3ae1e3f6023e89e492bce63b52a9ed03ee46a163c2f4a3b997eaf2aaf85'
   const AUTO_REFRESH_INTERVAL = 10         // in seconds
   const BUNDLE_OPS = 10_000
+  const PAST_ROOTS = [
+    // November 2025: https://bsky.app/profile/atproto.com/post/3m4e3mnxb7s2p
+    "cbab6809a136d6a621906ee11199d3b0faf85b422fe0d0d2c346ce8e9dcd7485"
+  ]
 
   type StatusResponse = {
     ok: boolean;
@@ -24,6 +28,7 @@
       end_time?: string;
       total_size?: number;
       uncompressed_size?: number;
+      updated_at?: string;
     };
     server: {
       uptime: number;
@@ -46,6 +51,7 @@
     status?: StatusResponse | StatusResponseError;
     modern?: boolean;
     _head?: boolean;
+    _oldRoot?: boolean;
     _conflict?: boolean;
   }
 
@@ -79,7 +85,10 @@
   let autoRefreshEnabled = $state(true)
   let instances = $state<Instance[]>(instancesData.sort(() => Math.random() - 0.5))
 
-  const instanceOrderBy = [['status.error', '_head', 'status.bundles.last_bundle', 'status.latency'], ['desc', 'desc', 'desc', 'asc']]
+  const instanceOrderBy = [
+    ['status.error', '_head', '_oldRoot' , 'status.bundles.last_bundle', 'status.latency'],
+    ['desc', 'desc', 'asc', 'desc', 'asc']
+  ]
 
   async function getStatus(instance: Instance): Promise<StatusResponse | StatusResponseError> {
     let statusResp: StatusResponse | undefined;
@@ -132,17 +141,21 @@
     instancesInConflict = []
     const headHashes: any = {}
     for (const instance of instances) {
-      if (instance.status && 'error' in instance.status) {
+      if ((instance.status && 'error' in instance.status) || !instance.status) {
         continue
       }
-      instance._head = instance.status?.bundles?.last_bundle === lastKnownBundle.number
-      if (instance._head && instance.status?.bundles?.head_hash) {
-        if (!headHashes[instance.status.bundles.head_hash]) {
-          headHashes[instance.status.bundles.head_hash] = []
+      const { head_hash, root_hash, last_bundle } = instance.status.bundles
+      instance._oldRoot = PAST_ROOTS.includes(root_hash)
+      instance._head = !instance._oldRoot && (last_bundle === lastKnownBundle.number)
+
+      if (instance._head && head_hash) {
+        if (!headHashes[head_hash]) {
+          headHashes[head_hash] = []
         }
-        headHashes[instance.status.bundles.head_hash].push(instance.url)
+        headHashes[head_hash].push(instance.url)
       }
     }
+    console.log(headHashes)
     // second pass
     const sorted: any = Object.fromEntries(
       Object.entries(headHashes).sort(([, a]: any, [, b]: any) => b.length - a.length)
@@ -175,7 +188,7 @@
       instance.status = status
       if ('ok' in status && status.ok) {
 
-        if (status?.bundles?.last_bundle && status.bundles.last_bundle >= lastKnownBundle.number) {
+        if (status?.bundles?.last_bundle && status.bundles.last_bundle >= lastKnownBundle.number && !PAST_ROOTS.includes(status.bundles.root_hash)) {
           lastKnownBundle.number = status.bundles.last_bundle
           lastKnownBundle.hash = status.bundles.head_hash
           lastKnownBundle.time = status.bundles.end_time
@@ -217,6 +230,19 @@
     }
     document.title = [...arr, APP_TITLE].join(' ')
     return true
+  }
+
+  function bundleAge(instance: Instance) {
+    if (!instance.status || !('bundles' in instance.status) || !instance.status.bundles?.updated_at) {
+      return '-'
+    }
+    const str = instance.status?.bundles.updated_at ? instance.status?.bundles.updated_at : instance.status?.bundles.end_time || ''
+    const diff = differenceInSeconds(new Date(), new Date(str))
+    return diff > 300 ? '>5m' : diff + 's'
+  }
+
+  function secondsAge(seconds: number) {
+    return seconds > 300 ? '>5m' : seconds + 's'
   }
 
   let autoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -293,8 +319,8 @@
         </div>
         <div class="flex gap-4">
           <div class="mt-4">
-            <Progress value={lastKnownBundle.mempoolPercent} class="items-center {lastKnownBundle.mempoolPercent > 98 ? 'animate-pulse' : ''}">
-              <Progress.Circle style="--size: 64px; --thickness: 10px;">
+            <Progress value={lastKnownBundle.mempoolPercent} class="items-center">
+              <Progress.Circle style="--size: 64px; --thickness: 10px;" class={lastKnownBundle.mempoolPercent > 95 ? 'animate-pulse' : ''}>
                 <Progress.CircleTrack />
                 <Progress.CircleRange />
               </Progress.Circle>
@@ -338,6 +364,7 @@
           <th>head</th>
           <th>first</th>
           <th>version</th>
+          <th>rsv?</th>
           <th>ws?</th>
           <th>uptime</th>
           <th>latency</th>
@@ -347,18 +374,29 @@
         {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
-            <td>{#if instance._head && instance.status?.ok}{#if instance._conflict}⚠️{:else}✅{/if}{:else if instance.status && instance.status?.ok}🔄{:else if instance.status?.error}❌{:else}⌛{/if}</td>
+            <td>{#if instance._head && instance.status?.ok}{#if instance._conflict}⚠️{:else}✅{/if}{:else if instance.status?.ok && instance._oldRoot}⚰️{:else if instance.status?.ok}🔄{:else if instance.status?.error}❌{:else}⌛{/if}</td>
             {#if instance.status?.error}
               <td colspan="5" class="opacity-50 text-xs">Error: {instance.status?.error}</td>
             {:else}
               <td>{#if instance.status?.bundles?.last_bundle}<span class="{instance._conflict ? 'text-error-600' : ''}">{instance.status?.bundles?.last_bundle}</span>{/if}</td>
-              <td>{#if instance.status?.mempool && instance._head}<span class="{instance._conflict ? 'text-error-600' : ''}">{formatNumber(instance.status?.mempool.count)}</span>{:else if instance.status?.error}<span class="opacity-25 text-xs">error</span>{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
-              <td>{#if instance.status?.mempool && instance._head}<span class="text-xs opacity-50 {instance._conflict ? 'text-error-600' : ''}">{instance.status?.mempool.last_op_age_seconds || 0}s</span>{/if}</td>
-              <td><span class="font-mono text-xs {instance._head ? (instance._conflict ? 'text-error-600' : 'text-success-600') : 'opacity-50'}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
-              <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : 'text-error-600') : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
+              <td>{#if instance.status?.mempool && (instance._head || instance._oldRoot)}<span class="{instance._conflict ? 'text-error-600' : (instance._oldRoot ? 'text-warning-500 opacity-50' : '')}">{formatNumber(instance.status?.mempool.count)}</span>{:else if instance.status?.error}<span class="opacity-25 text-xs">error</span>{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
+              <td>
+                {#if instance.status?.mempool}
+                  <span class="text-xs opacity-50 {instance._conflict ? 'text-error-600' : (instance._oldRoot ? 'text-warning-500' : '')}">
+                    {#if instance._head || instance._oldRoot}
+                      {secondsAge(instance.status?.mempool.last_op_age_seconds || 0)}
+                    {:else}
+                      {bundleAge(instance)}
+                    {/if}
+                  </span>
+                {/if}
+              </td>
+              <td><span class="font-mono text-xs {instance._head ? (instance._conflict ? 'text-error-600' : 'text-success-600') : (instance._oldRoot ? 'text-warning-500 opacity-50' : 'opacity-50')}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
+              <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : (PAST_ROOTS.includes(instance.status?.bundles?.root_hash) ? 'text-warning-500' : 'text-error-600')) : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
             {/if}
 
             <td class="text-xs">{#if instance.status?.server?.version}<span title={instance.status?.server?.version}>{normalizedVersion(instance.status?.server?.version)}</span>{/if}</td>
+            <td class="text-xs">{#if instance.status?.server?.resolver_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.uptime_seconds}{formatUptime(instance.status?.server?.uptime_seconds)}{/if}</td>
             <td class="text-xs opacity-50">{#if instance.status?.latency}<a href="{instance.url}/status">{Math.round(instance.status?.latency)}ms</a>{/if}</td>

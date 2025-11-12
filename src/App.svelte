@@ -374,7 +374,7 @@
         {#each orderBy(instances, ...instanceOrderBy) as instance}
           <tr>
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
-            <td>{#if instance._head && instance.status?.ok}{#if instance._conflict}⚠️{:else}✅{/if}{:else if instance.status?.ok && instance._oldRoot}⚰️{:else if instance.status?.ok}🔄{:else if instance.status?.error}❌{:else}⌛{/if}</td>
+            <td>{#if instance._head && instance.status?.ok}{#if instance._conflict}⚠️{:else}✅{/if}{:else if instance.status?.ok && instance._oldRoot}🦇{:else if instance.status?.ok}🔄{:else if instance.status?.error}❌{:else}⌛{/if}</td>
             {#if instance.status?.error}
               <td colspan="8" class="opacity-50 text-xs">Error: {instance.status?.error}</td>
             {:else}

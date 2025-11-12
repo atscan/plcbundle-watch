@@ -376,7 +376,7 @@
             <td><a href={instance.url} target="_blank" class="font-semibold">{instance.url.replace("https://", "")}</a></td>
             <td>{#if instance._head && instance.status?.ok}{#if instance._conflict}⚠️{:else}✅{/if}{:else if instance.status?.ok && instance._oldRoot}⚰️{:else if instance.status?.ok}🔄{:else if instance.status?.error}❌{:else}⌛{/if}</td>
             {#if instance.status?.error}
-              <td colspan="5" class="opacity-50 text-xs">Error: {instance.status?.error}</td>
+              <td colspan="8" class="opacity-50 text-xs">Error: {instance.status?.error}</td>
             {:else}
               <td>{#if instance.status?.bundles?.last_bundle}<span class="{instance._conflict ? 'text-error-600' : ''}">{instance.status?.bundles?.last_bundle}</span>{/if}</td>
               <td>{#if instance.status?.mempool && (instance._head || instance._oldRoot)}<span class="{instance._conflict ? 'text-error-600' : (instance._oldRoot ? 'text-warning-500 opacity-50' : '')}">{formatNumber(instance.status?.mempool.count)}</span>{:else if instance.status?.error}<span class="opacity-25 text-xs">error</span>{:else if instance.status}<span class="opacity-25 text-xs">syncing</span>{/if}</td>
@@ -393,11 +393,10 @@
               </td>
               <td><span class="font-mono text-xs {instance._head ? (instance._conflict ? 'text-error-600' : 'text-success-600') : (instance._oldRoot ? 'text-warning-500 opacity-50' : 'opacity-50')}">{#if instance.status?.bundles?.head_hash}{instance.status?.bundles?.head_hash.slice(0, 7)}{/if}</span></td>
               <td><span class="font-mono text-xs {instance.status ? (instance.status?.bundles?.root_hash === ROOT ? 'text-success-600' : (PAST_ROOTS.includes(instance.status?.bundles?.root_hash) ? 'text-warning-500' : 'text-error-600')) : ''}">{#if instance.status?.bundles?.root_hash}{instance.status?.bundles?.root_hash.slice(0, 7)}{/if}</span></td>
+              <td class="text-xs">{#if instance.status?.server?.version}<span title={instance.status?.server?.version}>{normalizedVersion(instance.status?.server?.version)}</span>{/if}</td>
+              <td class="text-xs">{#if instance.status?.server?.resolver_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
+              <td class="text-xs">{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>              
             {/if}
-
-            <td class="text-xs">{#if instance.status?.server?.version}<span title={instance.status?.server?.version}>{normalizedVersion(instance.status?.server?.version)}</span>{/if}</td>
-            <td class="text-xs">{#if instance.status?.server?.resolver_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
-            <td class="text-xs">{#if instance.status?.server?.websocket_enabled}✔︎{:else if instance.status}<span class="opacity-25">-</span>{/if}</td>
             <td class="text-xs">{#if instance.status?.server?.uptime_seconds}{formatUptime(instance.status?.server?.uptime_seconds)}{/if}</td>
             <td class="text-xs opacity-50">{#if instance.status?.latency}<a href="{instance.url}/status">{Math.round(instance.status?.latency)}ms</a>{/if}</td>
           </tr>
